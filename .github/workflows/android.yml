@@ -1,19 +1,47 @@
 name: Android CI
 
-on: [push]
+on:
+  push:
+  pull_request:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v1
-    - name: set up JDK 1.11
-      uses: actions/setup-java@v1
-      with:
-        java-version: 1.11
-    - name: Grant Permission
-      run: chmod +x ./gradlew
-    - name: Build with Gradle
-      run: ./gradlew build
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 18
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '18'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      # AGP ValidateSigningTask always runs multi-process locking for the *default*
+      # debug keystore path, which NPEs on some runners (cgroup anyController=null).
+      # Use a project-local CI keystore with the usual debug credentials instead.
+      - name: Create CI debug keystore
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/.ci"
+          keytool -genkeypair \
+            -keystore "$GITHUB_WORKSPACE/.ci/debug.keystore" \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+
+      - name: Build with Gradle
+        env:
+          CI_DEBUG_KEYSTORE: ${{ github.workspace }}/.ci/debug.keystore
+        run: ./gradlew assembleDebug --stacktrace

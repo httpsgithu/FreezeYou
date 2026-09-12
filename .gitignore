@@ -11,3 +11,5 @@
 /app/debug
 /.idea/caches
 /.idea
+.kotlin
+/.ci/

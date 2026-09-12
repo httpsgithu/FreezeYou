@@ -3,11 +3,10 @@ package cf.playhi.freezeyou.fuf
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
-import android.os.Build
 import android.os.IBinder
 import android.system.Os
-import cf.playhi.freezeyou.DeviceAdminReceiver.getComponentName
-import cf.playhi.freezeyou.utils.DevicePolicyManagerUtils.*
+import cf.playhi.freezeyou.DeviceAdminReceiver
+import cf.playhi.freezeyou.utils.DevicePolicyManagerUtils
 import cf.playhi.freezeyou.utils.FUFUtils.checkMRootFrozen
 import cf.playhi.freezeyou.utils.FUFUtils.isSystemApp
 import cf.playhi.freezeyou.utils.ProcessUtils.fAURoot
@@ -59,7 +58,7 @@ open class FUFSinglePackage(
 
     private fun pureExecuteAPIAutoAction(): Int {
         return if (actionMode == ACTION_MODE_FREEZE) {
-            if (Build.VERSION.SDK_INT >= 21 && isDeviceOwner(context)) {
+            if (DevicePolicyManagerUtils.isDeviceOwner(context)) {
                 pureExecuteAPIDPMAction()
             } else {
                 pureExecuteAPIRootAction()
@@ -75,19 +74,18 @@ open class FUFSinglePackage(
 
     private fun pureExecuteAPIDPMAction(): Int {
 
-        if (Build.VERSION.SDK_INT < 21) return ERROR_DEVICE_ANDROID_VERSION_TOO_LOW
-        if (!isDeviceOwner(context)) return ERROR_NOT_DEVICE_POLICY_MANAGER
+        if (!DevicePolicyManagerUtils.isDeviceOwner(context)) return ERROR_NOT_DEVICE_POLICY_MANAGER
 
         val hidden = actionMode == ACTION_MODE_FREEZE
         if (!hidden &&
-            !getDevicePolicyManager(context)
-                .isApplicationHidden(getComponentName(context), singlePackageName)
+            !DevicePolicyManagerUtils.getDevicePolicyManager(context)
+                .isApplicationHidden(DeviceAdminReceiver.getComponentName(context), singlePackageName)
         ) {
             return ERROR_NO_ERROR_SUCCESS
         }
 
-        return if (getDevicePolicyManager(context).setApplicationHidden(
-                getComponentName(context),
+        return if (DevicePolicyManagerUtils.getDevicePolicyManager(context).setApplicationHidden(
+                DeviceAdminReceiver.getComponentName(context),
                 singlePackageName,
                 hidden
             )
@@ -137,7 +135,6 @@ open class FUFSinglePackage(
 
     private fun pureExecuteAPISystemAppDisabledUntilUsedAction(): Int {
 
-        if (Build.VERSION.SDK_INT < 18) return ERROR_DEVICE_ANDROID_VERSION_TOO_LOW
         if (!isSystemApp(context)) return ERROR_NOT_SYSTEM_APP
         val freeze = actionMode == ACTION_MODE_FREEZE
         context.packageManager.setApplicationEnabledSetting(
@@ -183,19 +180,18 @@ open class FUFSinglePackage(
 
     private fun pureExecuteAPIProfileOwnerAction(): Int {
 
-        if (Build.VERSION.SDK_INT < 21) return ERROR_DEVICE_ANDROID_VERSION_TOO_LOW
-        if (!isProfileOwner(context)) return ERROR_NOT_PROFILE_OWNER
+        if (!DevicePolicyManagerUtils.isProfileOwner(context)) return ERROR_NOT_PROFILE_OWNER
 
         val hidden = actionMode == ACTION_MODE_FREEZE
         if (!hidden &&
-            !getDevicePolicyManager(context)
-                .isApplicationHidden(getComponentName(context), singlePackageName)
+            !DevicePolicyManagerUtils.getDevicePolicyManager(context)
+                .isApplicationHidden(DeviceAdminReceiver.getComponentName(context), singlePackageName)
         ) {
             return ERROR_NO_ERROR_SUCCESS
         }
 
-        return if (getDevicePolicyManager(context).setApplicationHidden(
-                getComponentName(context),
+        return if (DevicePolicyManagerUtils.getDevicePolicyManager(context).setApplicationHidden(
+                DeviceAdminReceiver.getComponentName(context),
                 singlePackageName,
                 hidden
             )
@@ -208,8 +204,6 @@ open class FUFSinglePackage(
     }
 
     private fun pureExecuteAPIShizukuAction(): Int {
-
-        if (Build.VERSION.SDK_INT < 23) return ERROR_DEVICE_ANDROID_VERSION_TOO_LOW
 
         try {
             ShizukuProvider.requestBinderForNonProviderProcess(context)

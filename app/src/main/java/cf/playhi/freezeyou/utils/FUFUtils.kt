@@ -1,13 +1,11 @@
 package cf.playhi.freezeyou.utils
 
-import android.annotation.TargetApi
 import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
-import android.os.Build
 import cf.playhi.freezeyou.DeviceAdminReceiver
 import cf.playhi.freezeyou.MainApplication
 import cf.playhi.freezeyou.MyNotificationListenerService
@@ -126,7 +124,6 @@ object FUFUtils {
     }
 
     @JvmStatic
-    @TargetApi(21)
     fun processMRootAction(
         context: Context, pkgName: String, target: String?, tasks: String?, hidden: Boolean,
         askRun: Boolean, runImmediately: Boolean, activity: Activity?,
@@ -327,7 +324,6 @@ object FUFUtils {
     }
 
     @JvmStatic
-    @TargetApi(21)
     @Deprecated(
         "DEPRECATED", ReplaceWith(
             "oneKeyAction(context, freeze, pkgNameList, FUFSinglePackage.API_FREEZEYOU_MROOT_DPM)",
@@ -395,15 +391,12 @@ object FUFUtils {
         context.sendBroadcast(intent)
     }
 
-    @TargetApi(21)
     private fun isAppStillNotifying(pkgName: String?): Boolean {
         if (pkgName != null) {
-            val statusBarNotifications = MyNotificationListenerService.getStatusBarNotifications()
-            if (statusBarNotifications != null) {
-                for (aStatusBarNotifications in statusBarNotifications) {
-                    if (pkgName == aStatusBarNotifications.packageName) {
-                        return true
-                    }
+            val statusBarNotifications = MyNotificationListenerService.statusBarNotifications
+            for (aStatusBarNotifications in statusBarNotifications) {
+                if (pkgName == aStatusBarNotifications.packageName) {
+                    return true
                 }
             }
         }
@@ -412,12 +405,8 @@ object FUFUtils {
 
     @JvmStatic
     fun isAvoidFreezeNotifyingApplicationsEnabledAndAppStillNotifying(pkgName: String?): Boolean {
-        return if (Build.VERSION.SDK_INT >= 21) {
-            DefaultMultiProcessMMKVStorageBooleanKeys.avoidFreezeNotifyingApplications.getValue()
-                    && isAppStillNotifying(pkgName)
-        } else {
-            false
-        }
+        return DefaultMultiProcessMMKVStorageBooleanKeys.avoidFreezeNotifyingApplications.getValue()
+                && isAppStillNotifying(pkgName)
     }
 
     @JvmStatic
@@ -454,7 +443,7 @@ object FUFUtils {
 
     @JvmStatic
     fun processUnfreezeAction(
-        context: Context?,
+        context: Context,
         pkgName: String?,
         target: String?,
         tasks: String?,
@@ -478,7 +467,7 @@ object FUFUtils {
 
     @JvmStatic
     fun processFreezeAction(
-        context: Context?,
+        context: Context,
         pkgName: String?,
         target: String?,
         tasks: String?,
@@ -499,11 +488,9 @@ object FUFUtils {
     }
 
     @JvmStatic
-    fun checkMRootFrozen(context: Context?, pkgName: String): Boolean {
+    fun checkMRootFrozen(context: Context, pkgName: String): Boolean {
         return try {
-            (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP && (DevicePolicyManagerUtils.isDeviceOwner(
-                context
-            ) || DevicePolicyManagerUtils.isProfileOwner(context))
+            ((DevicePolicyManagerUtils.isDeviceOwner(context) || DevicePolicyManagerUtils.isProfileOwner(context))
                     && DevicePolicyManagerUtils.getDevicePolicyManager(context)
                 .isApplicationHidden(DeviceAdminReceiver.getComponentName(context), pkgName))
         } catch (e: Exception) {
@@ -598,14 +585,14 @@ object FUFUtils {
     }
 
     @JvmStatic
-    fun checkAndCreateFUFQuickNotification(context: Context?, pkgName: String?) {
+    fun checkAndCreateFUFQuickNotification(context: Context, pkgName: String) {
         if (DefaultMultiProcessMMKVStorageBooleanKeys.createQuickFUFNotiAfterUnfrozen.getValue()) {
             NotificationUtils.createFUFQuickNotification(
                 context, pkgName, R.drawable.ic_notification,
                 ApplicationIconUtils.getBitmapFromDrawable(
                     ApplicationIconUtils.getApplicationIcon(
-                        context!!,
-                        pkgName!!,
+                        context,
+                        pkgName,
                         ApplicationInfoUtils.getApplicationInfoFromPkgName(pkgName, context),
                         false
                     )
@@ -808,10 +795,9 @@ object FUFUtils {
     }
 
     fun checkAndEnableShizukuMultiProcessSupport(context: Context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
-            && ("10" == DefaultMultiProcessMMKVStorageStringKeys.selectFUFMode.getValue()
-                    || "9" == DefaultMultiProcessMMKVStorageStringKeys.selectFUFMode.getValue()
-                    || "8" == DefaultMultiProcessMMKVStorageStringKeys.selectFUFMode.getValue())
+        if ("10" == DefaultMultiProcessMMKVStorageStringKeys.selectFUFMode.getValue()
+            || "9" == DefaultMultiProcessMMKVStorageStringKeys.selectFUFMode.getValue()
+            || "8" == DefaultMultiProcessMMKVStorageStringKeys.selectFUFMode.getValue()
         ) {
             ShizukuProvider.enableMultiProcessSupport(false)
             ShizukuProvider.requestBinderForNonProviderProcess(context)

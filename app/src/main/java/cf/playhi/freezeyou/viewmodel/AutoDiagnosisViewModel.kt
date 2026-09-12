@@ -1,6 +1,7 @@
 package cf.playhi.freezeyou.viewmodel
 
 import android.Manifest
+import android.app.AlarmManager
 import android.app.Application
 import android.app.NotificationManager
 import android.content.Context.*
@@ -49,9 +50,6 @@ class AutoDiagnosisViewModel(application: Application) : AndroidViewModel(applic
                 loadingProgress.postValue(-1)
 
                 problemsList.value!!.clear()
-                loadingProgress.postValue(5)
-
-                checkSystemVersion()
                 loadingProgress.postValue(10)
 
                 checkLongTimeNoUpdate()
@@ -68,6 +66,9 @@ class AutoDiagnosisViewModel(application: Application) : AndroidViewModel(applic
 
                 checkBlueToothPermission()
                 loadingProgress.postValue(35)
+
+                checkExactAlarmPermission()
+                loadingProgress.postValue(40)
 
                 checkIsDeviceOwner()
                 loadingProgress.postValue(50)
@@ -116,28 +117,6 @@ class AutoDiagnosisViewModel(application: Application) : AndroidViewModel(applic
         return hashMap
     }
 
-    private fun checkSystemVersion() {
-        if (Build.VERSION.SDK_INT < 21) {
-            problemsList.value!!.add(
-                generateHashMap(
-                    getApplication<Application>().getString(R.string.sysVerLow),
-                    getApplication<Application>().getString(R.string.someFuncUn),
-                    "-50",
-                    R.drawable.ic_warning
-                )
-            )
-        } else {
-            problemsList.value!!.add(
-                generateHashMap(
-                    getApplication<Application>().getString(R.string.sysVerLow),
-                    getApplication<Application>().getString(R.string.someFuncUn),
-                    "-1",
-                    R.drawable.ic_done
-                )
-            )
-        }
-    }
-
     private fun checkAccessibilityService() {
         problemsList.value!!.add(
             if (isAccessibilitySettingsOn(getApplication())) {
@@ -167,41 +146,50 @@ class AutoDiagnosisViewModel(application: Application) : AndroidViewModel(applic
     }
 
     private fun checkNotificationListenerPermission() {
-        if (Build.VERSION.SDK_INT >= 21) {
-            val s = Settings.Secure.getString(
-                getApplication<Application>().contentResolver,
-                "enabled_notification_listeners"
-            )
-            problemsList.value!!.add(
-                if (s == null
-                    || !s.contains("cf.playhi.freezeyou/cf.playhi.freezeyou.MyNotificationListenerService")
-                ) {
-                    generateHashMap(
-                        getApplication<Application>().getString(R.string.noNotificationListenerPermission),
-                        getApplication<Application>().getString(R.string.affect) + " " + getApplication<Application>().getString(
-                            R.string.avoidFreezeNotifyingApplications
-                        ),
-                        "2",
-                        R.drawable.ic_warning
-                    )
-                } else {
-                    generateHashMap(
-                        getApplication<Application>().getString(R.string.noNotificationListenerPermission),
-                        getApplication<Application>().getString(R.string.affect) + " " + getApplication<Application>().getString(
-                            R.string.avoidFreezeNotifyingApplications
-                        ),
-                        "2",
-                        R.drawable.ic_done
-                    )
-                }
-            )
-        }
+        val s = Settings.Secure.getString(
+            getApplication<Application>().contentResolver,
+            "enabled_notification_listeners"
+        )
+        problemsList.value!!.add(
+            if (s == null
+                || !s.contains("cf.playhi.freezeyou/cf.playhi.freezeyou.MyNotificationListenerService")
+            ) {
+                generateHashMap(
+                    getApplication<Application>().getString(R.string.noNotificationListenerPermission),
+                    getApplication<Application>().getString(R.string.affect) + " " + getApplication<Application>().getString(
+                        R.string.avoidFreezeNotifyingApplications
+                    ),
+                    "2",
+                    R.drawable.ic_warning
+                )
+            } else {
+                generateHashMap(
+                    getApplication<Application>().getString(R.string.noNotificationListenerPermission),
+                    getApplication<Application>().getString(R.string.affect) + " " + getApplication<Application>().getString(
+                        R.string.avoidFreezeNotifyingApplications
+                    ),
+                    "2",
+                    R.drawable.ic_done
+                )
+            }
+        )
     }
 
     private fun checkNotifyPermission() {
         val notificationManager =
             getApplication<Application>().getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        if (Build.VERSION.SDK_INT >= 24 && !notificationManager.areNotificationsEnabled()) {
+        val isNotifyingEnabled =
+            if (Build.VERSION.SDK_INT >= 33) {
+                ActivityCompat.checkSelfPermission(
+                    getApplication(),
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+            } else if (Build.VERSION.SDK_INT >= 24) {
+                notificationManager.areNotificationsEnabled()
+            } else {
+                true
+            }
+        if (!isNotifyingEnabled) {
             problemsList.value!!.add(
                 generateHashMap(
                     getApplication<Application>().getString(R.string.noNotifyPermission),
@@ -228,7 +216,7 @@ class AutoDiagnosisViewModel(application: Application) : AndroidViewModel(applic
                 generateHashMap(
                     getApplication<Application>().getString(R.string.noMRootPermission),
                     getApplication<Application>().getString(R.string.someFuncMayRestrict),
-                    "-3",
+                    "-4",
                     R.drawable.ic_done
                 )
             )
@@ -237,7 +225,7 @@ class AutoDiagnosisViewModel(application: Application) : AndroidViewModel(applic
                 generateHashMap(
                     getApplication<Application>().getString(R.string.noMRootPermission),
                     getApplication<Application>().getString(R.string.someFuncMayRestrict),
-                    "-3",
+                    "-4",
                     R.drawable.ic_warning
                 )
             )
@@ -277,8 +265,8 @@ class AutoDiagnosisViewModel(application: Application) : AndroidViewModel(applic
             value = process.waitFor()
             destroyProcess(outputStream, process)
         } catch (e: Exception) {
-            if (e.message!!.toLowerCase().contains("permission denied")
-                || e.message!!.toLowerCase().contains("not found")
+            if (e.message!!.lowercase().contains("permission denied")
+                || e.message!!.lowercase().contains("not found")
             ) {
                 hasPermission = false
             }
@@ -305,8 +293,7 @@ class AutoDiagnosisViewModel(application: Application) : AndroidViewModel(applic
     }
 
     private fun checkIsIgnoringBatteryOptimizations() {
-        if (Build.VERSION.SDK_INT >= 23
-            && !(getApplication<Application>().getSystemService(POWER_SERVICE) as PowerManager)
+        if (!(getApplication<Application>().getSystemService(POWER_SERVICE) as PowerManager)
                 .isIgnoringBatteryOptimizations("cf.playhi.freezeyou")
         ) {
             problemsList.value!!.add(
@@ -330,9 +317,7 @@ class AutoDiagnosisViewModel(application: Application) : AndroidViewModel(applic
     }
 
     private fun checkIsPowerSaveMode() {
-        if (Build.VERSION.SDK_INT >= 21
-            && (getApplication<Application>().getSystemService(POWER_SERVICE) as PowerManager).isPowerSaveMode
-        ) {
+        if ((getApplication<Application>().getSystemService(POWER_SERVICE) as PowerManager).isPowerSaveMode) {
             problemsList.value!!.add(
                 generateHashMap(
                     getApplication<Application>().getString(R.string.inPowerSaveMode),
@@ -378,6 +363,36 @@ class AutoDiagnosisViewModel(application: Application) : AndroidViewModel(applic
                     R.drawable.ic_done
                 )
             )
+        }
+    }
+
+    private fun checkExactAlarmPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val alarmManager =
+                getApplication<Application>().getSystemService(ALARM_SERVICE) as AlarmManager
+            if (!alarmManager.canScheduleExactAlarms()) {
+                problemsList.value!!.add(
+                    generateHashMap(
+                        getApplication<Application>().getString(R.string.cannotScheduleExactAlarms),
+                        getApplication<Application>().getString(R.string.affect) + " " + getApplication<Application>().getString(
+                            R.string.scheduledTasks
+                        ),
+                        "8",
+                        R.drawable.ic_warning
+                    )
+                )
+            } else {
+                problemsList.value!!.add(
+                    generateHashMap(
+                        getApplication<Application>().getString(R.string.cannotScheduleExactAlarms),
+                        getApplication<Application>().getString(R.string.affect) + " " + getApplication<Application>().getString(
+                            R.string.scheduledTasks
+                        ),
+                        "8",
+                        R.drawable.ic_done
+                    )
+                )
+            }
         }
     }
 

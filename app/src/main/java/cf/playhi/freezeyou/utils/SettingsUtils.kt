@@ -7,7 +7,6 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.content.pm.PackageManager.PERMISSION_GRANTED
-import android.os.Build
 import android.provider.Settings
 import cf.playhi.freezeyou.R
 import cf.playhi.freezeyou.fuf.FUFSinglePackage.Companion.API_FREEZEYOU_LEGACY_AUTO
@@ -90,20 +89,18 @@ object SettingsUtils {
                     showToast(context, R.string.failed)
                 }
             avoidFreezeNotifyingApplications -> {
-                if (Build.VERSION.SDK_INT >= 21) {
-                    val enabledNotificationListeners = Settings.Secure.getString(
-                        context.contentResolver, "enabled_notification_listeners"
-                    )
-                    if (enabledNotificationListeners != null
-                        && !enabledNotificationListeners.contains("cf." + "playhi." + "freezeyou")
-                    ) {
-                        try {
-                            activity.startActivity(
-                                Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")
-                            )
-                        } catch (e: Exception) {
-                            showToast(activity, R.string.failed)
-                        }
+                val enabledNotificationListeners = Settings.Secure.getString(
+                    context.contentResolver, "enabled_notification_listeners"
+                )
+                if (enabledNotificationListeners != null
+                    && !enabledNotificationListeners.contains("cf." + "playhi." + "freezeyou")
+                ) {
+                    try {
+                        activity.startActivity(
+                            Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")
+                        )
+                    } catch (e: Exception) {
+                        showToast(activity, R.string.failed)
                     }
                 }
             }
@@ -151,32 +148,29 @@ object SettingsUtils {
                         }
                     API_FREEZEYOU_SHIZUKU_SYSTEM_APP_ENABLE_DISABLE_UNTIL_USED,
                     API_FREEZEYOU_SHIZUKU_SYSTEM_APP_ENABLE_DISABLE_USER,
-                    API_FREEZEYOU_SHIZUKU_SYSTEM_APP_ENABLE_DISABLE ->
-                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-                            showToast(context, context.getString(R.string.sysVerLow))
-                        } else {
-                            try {
-                                if (Shizuku.isPreV11()) {
-                                    showToast(context, R.string.shizukuVersionIsTooLow)
-                                } else if (Shizuku.checkSelfPermission() != PERMISSION_GRANTED) {
-                                    if (Shizuku.shouldShowRequestPermissionRationale()) {
-                                        showToast(context, R.string.insufficientPermission)
-                                    } else {
-                                        Shizuku.addRequestPermissionResultListener { _, grantResult ->
-                                            if (grantResult == PERMISSION_GRANTED) {
-                                                checkAndEnableShizukuMultiProcessSupport(context)
-                                            }
-                                        }
-                                        Shizuku.requestPermission(-1)
-                                    }
+                    API_FREEZEYOU_SHIZUKU_SYSTEM_APP_ENABLE_DISABLE -> {
+                        try {
+                            if (Shizuku.isPreV11()) {
+                                showToast(context, R.string.shizukuVersionIsTooLow)
+                            } else if (Shizuku.checkSelfPermission() != PERMISSION_GRANTED) {
+                                if (Shizuku.shouldShowRequestPermissionRationale()) {
+                                    showToast(context, R.string.insufficientPermission)
                                 } else {
-                                    checkAndEnableShizukuMultiProcessSupport(context)
+                                    Shizuku.addRequestPermissionResultListener { _, grantResult ->
+                                        if (grantResult == PERMISSION_GRANTED) {
+                                            checkAndEnableShizukuMultiProcessSupport(context)
+                                        }
+                                    }
+                                    Shizuku.requestPermission(-1)
                                 }
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                                showToast(context, R.string.shizukuIsNotInstalledOrOtherExceptions)
+                            } else {
+                                checkAndEnableShizukuMultiProcessSupport(context)
                             }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            showToast(context, R.string.shizukuIsNotInstalledOrOtherExceptions)
                         }
+                    }
                     else -> showToast(context, R.string.unknown)
                 }
             }

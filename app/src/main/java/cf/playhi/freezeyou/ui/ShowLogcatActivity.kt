@@ -1,13 +1,27 @@
 package cf.playhi.freezeyou.ui
 
 import android.os.Bundle
-import android.widget.EditText
+import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import cf.playhi.freezeyou.R
 import cf.playhi.freezeyou.viewmodel.ShowLogcatViewModel
 import cf.playhi.freezeyou.utils.ThemeUtils.processActionBar
 import cf.playhi.freezeyou.utils.ThemeUtils.processSetTheme
 import cf.playhi.freezeyou.app.FreezeYouBaseActivity
+import cf.playhi.freezeyou.ui.compose.FreezeYouTheme
 
 class ShowLogcatActivity : FreezeYouBaseActivity() {
 
@@ -16,16 +30,26 @@ class ShowLogcatActivity : FreezeYouBaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         processSetTheme(this)
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.showlogcat_activity)
         processActionBar(supportActionBar)
-
-        val editText = findViewById<EditText>(R.id.sla_log_editText)
-
-        editText.setText(R.string.loading___)
+        var logContent by mutableStateOf(getString(R.string.loading___))
+        setContent {
+            FreezeYouTheme {
+                val scrollState = rememberScrollState()
+                LaunchedEffect(logContent) {
+                    scrollState.scrollTo(scrollState.maxValue)
+                }
+                SelectionContainer {
+                    Text(
+                        text = logContent,
+                        modifier = Modifier.fillMaxSize().verticalScroll(scrollState).padding(10.dp),
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        }
 
         viewModel.getLog().observe(this) { content ->
-            editText.setText(content)
-            editText.setSelection(editText.text.length)
+            logContent = content
         }
 
         viewModel.loadLog()
